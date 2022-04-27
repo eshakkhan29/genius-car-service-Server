@@ -4,6 +4,8 @@ require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
+
+//  midelwear
 app.use(cors());
 app.use(express.json());
 
@@ -16,6 +18,7 @@ async function run() {
     try {
         await client.connect();
         const serviceCollection = client.db('Car-Service').collection('service');
+        const orderServiceCollection = client.db('Booked-service').collection('service');
 
         //  load all data 
         app.get('/service', async (req, res) => {
@@ -38,6 +41,22 @@ async function run() {
         app.post('/service', async (req, res) => {
             const service = req.body;
             const result = await serviceCollection.insertOne(service);
+            res.send(result);
+        });
+
+        //  get book service 
+        app.get('/bookService', async (req, res) => {
+            const email = req.query.email;
+            const query = {email};
+            const cursor = orderServiceCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+        //  add book service 
+        app.post('/bookService', async (req, res) => {
+            const bookService = req.body;
+            const result = await orderServiceCollection.insertOne(bookService);
             res.send(result);
         })
     }
