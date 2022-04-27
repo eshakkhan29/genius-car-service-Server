@@ -1,13 +1,31 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 
-//  midelwear
+//  middleware
 app.use(cors());
 app.use(express.json());
+
+//  authorization token decoded middleware
+
+const verifyToken = (req, res, next) => {
+    const headersToken = req.headers.authorization;
+    if (!headersToken) {
+        res.status(401).send({ massage: 'unAuthorize access' })
+    }
+    const token = headersToken.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+            res.status(401).send({ massage: 'unAuthorize access' })
+        }
+        req.decoded = decoded;
+        next()
+    });
+}
 
 
 
@@ -19,6 +37,16 @@ async function run() {
         await client.connect();
         const serviceCollection = client.db('Car-Service').collection('service');
         const orderServiceCollection = client.db('Booked-service').collection('service');
+
+
+        // AUTH USER Giv user Token
+        app.post('/login', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN);
+            res.send({ token });
+        })
+
+
 
         //  load all data 
         app.get('/service', async (req, res) => {
@@ -44,16 +72,22 @@ async function run() {
             res.send(result);
         });
 
-        //  get book service 
-        app.get('/bookService', async (req, res) => {
+        //  get orders service 
+        app.get('/bookService', verifyToken, async (req, res) => {
+            const headersEmail = req.decoded?.email;
             const email = req.query.email;
-            const query = {email};
-            const cursor = orderServiceCollection.find(query);
-            const result = await cursor.toArray();
-            res.send(result);
+            if (headersEmail === email) {
+                const query = { email };
+                const cursor = orderServiceCollection.find(query);
+                const result = await cursor.toArray();
+                res.send(result);
+            }
+            else {
+                res.status(403).send({ massage: 'forbidden' })
+            }
         })
 
-        //  add book service 
+        //  add orders service 
         app.post('/bookService', async (req, res) => {
             const bookService = req.body;
             const result = await orderServiceCollection.insertOne(bookService);
